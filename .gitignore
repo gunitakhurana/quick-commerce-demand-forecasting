@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv/
+venv/
+.vscode/
+Data.zip
+Data/predictions_2025.csv
+report_print.html

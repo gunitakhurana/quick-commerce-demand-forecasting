@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demand Forecasting & Inventory System</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="nav-title">Quick Commerce Inventory &amp; Demand Forecasting</div>
+        <div class="nav-store">
+            <label for="globalStoreSelect">Store:</label>
+            <select id="globalStoreSelect"></select>
+        </div>
+    </div>
+
+    <div class="tabs-bar">
+        <button class="tab-btn active" data-tab="tab-availability">1. Data Availability</button>
+        <button class="tab-btn" data-tab="tab-calendar">2. Calendar Effect</button>
+        <button class="tab-btn" data-tab="tab-discounts">3. Discounts</button>
+        <button class="tab-btn" data-tab="tab-recommender">4. Item Recommender</button>
+        <button class="tab-btn" data-tab="tab-queries">
+            5. Unstocked Queries (<span id="navAlertBadge">4</span>)
+        </button>
+    </div>
+
+    <div class="main-container">
+
+        <!-- 1. DATA AVAILABILITY TABLE -->
+        <div id="tab-availability" class="tab-panel active">
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-title">Total Items</div>
+                    <div class="stat-num" id="kpiAvailRecords">50</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Avg Availability</div>
+                    <div class="stat-num" id="kpiAvailPct">99.5%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Low Stock Items</div>
+                    <div class="stat-num text-danger" id="kpiCriticalLow">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Overstocked Items</div>
+                    <div class="stat-num text-warning" id="kpiOverstock">0</div>
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <div class="controls-row">
+                    <select id="availStoreFilter"></select>
+                    <select id="availCategoryFilter"></select>
+                    <select id="availStatusFilter">
+                        <option value="all">All Status</option>
+                        <option value="CRITICAL_LOW">Low Stock</option>
+                        <option value="OVERSTOCK">Overstock</option>
+                        <option value="HISTORICAL_GAPS">Past Stockouts</option>
+                        <option value="HEALTHY">In Stock</option>
+                    </select>
+                    <input type="text" id="availSearchInput" placeholder="Search item...">
+                    <button class="btn" id="exportAvailCsvBtn">Export CSV</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Item Name</th>
+                            <th>Category</th>
+                            <th>MRP (Rs.)</th>
+                            <th>Active Days</th>
+                            <th>Zero-Sale Days</th>
+                            <th>Availability %</th>
+                            <th>Avg Daily Units</th>
+                            <th>Current Stock</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="availTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. CALENDAR EFFECT -->
+        <div id="tab-calendar" class="tab-panel">
+            <div class="panel-box">
+                <div class="controls-row">
+                    <label>Item:</label>
+                    <select id="calItemSelect"></select>
+                    <label>From:</label>
+                    <input type="date" id="calStartDate" value="2026-10-25">
+                    <label>To:</label>
+                    <input type="date" id="calEndDate" value="2026-11-12">
+                    <button class="btn btn-primary" id="runCalendarBtn">Get Forecast</button>
+                </div>
+                <div class="preset-row">
+                    <span>Presets:</span>
+                    <button class="btn-sm" data-start="2026-10-25" data-end="2026-11-12" data-item="204">Diwali (Oct-Nov)</button>
+                    <button class="btn-sm" data-start="2026-03-01" data-end="2026-03-25" data-item="208">Holi &amp; Eid (Mar)</button>
+                    <button class="btn-sm" data-start="2026-08-12" data-end="2026-09-05" data-item="250">Raksha Bandhan (Aug)</button>
+                    <button class="btn-sm" data-start="2026-07-01" data-end="2026-07-15" data-item="214">Salary Week (1st-7th)</button>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-title">Predicted Sales</div>
+                    <div class="stat-num text-success" id="calPredInr">Rs. 0</div>
+                    <div class="stat-sub" id="calPredUnits">0 units</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Base Sales (No Calendar Effect)</div>
+                    <div class="stat-num" id="calBaseInr">Rs. 0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Calendar Difference</div>
+                    <div class="stat-num text-primary" id="calLiftPct">+0%</div>
+                    <div class="stat-sub" id="calLiftInr">Rs. 0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Event Days</div>
+                    <div class="stat-num" id="calFestDays">0 Festivals</div>
+                    <div class="stat-sub" id="calWeekendPayday">0 Weekends, 0 Salary Days</div>
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <h4>Daily Forecast vs Base Sales</h4>
+                <canvas id="calendarChartCanvas" width="1000" height="240"></canvas>
+            </div>
+
+            <div class="panel-box">
+                <h4>Daily Breakdown</h4>
+                <div class="scroll-table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Day</th>
+                                <th>Calendar Factor</th>
+                                <th>Base Sales (Rs.)</th>
+                                <th>Predicted Sales (Rs.)</th>
+                                <th>Est. Units</th>
+                            </tr>
+                        </thead>
+                        <tbody id="calDailyTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. HOW TO GIVE DISCOUNT -->
+        <div id="tab-discounts" class="tab-panel">
+            <div class="stats-row three-col">
+                <div class="stat-box">
+                    <div class="stat-title">Tier 1: Perishable Clearance</div>
+                    <p>20-25% OFF on Milk, Bread, Paneer &amp; Vegetables when stock exceeds shelf life.</p>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Tier 2: Slow-Moving Stock</div>
+                    <p>15-18% OFF on high-MRP items sitting in inventory for more than 15 days.</p>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Tier 3: Bundle Combos</div>
+                    <p>10-15% OFF when buying daily staples together with snacks or dry fruits.</p>
+                </div>
+            </div>
+
+            <div class="split-row">
+                <div class="panel-box">
+                    <h4>Discount Calculator</h4>
+                    <div class="form-stack">
+                        <label>Select Item:</label>
+                        <select id="simItemSelect"></select>
+
+                        <label>Discount Percentage: <strong id="simDiscLabel">15%</strong></label>
+                        <input type="range" id="simDiscRange" min="5" max="35" step="1" value="15">
+
+                        <label>Duration:</label>
+                        <select id="simDurationSelect">
+                            <option value="3">3 Days</option>
+                            <option value="7" selected>7 Days</option>
+                            <option value="14">14 Days</option>
+                        </select>
+                    </div>
+                    <div id="simResultBox" class="result-panel"></div>
+                </div>
+
+                <div class="panel-box">
+                    <h4>Suggested Combo Bundles</h4>
+                    <div id="bundlesContainer"></div>
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <div class="controls-row justify-between">
+                    <h4>Store Discount Recommendations</h4>
+                    <select id="discTierFilter">
+                        <option value="all">All Tiers</option>
+                        <option value="TIER_1_PERISHABLE_CLEARANCE">Tier 1: Perishable Clearance</option>
+                        <option value="TIER_2_SLOW_MOVER">Tier 2: Slow-Moving Stock</option>
+                        <option value="TIER_3_FESTIVE_PROMO">Tier 3: Festival Promo</option>
+                        <option value="TIER_4_TRAFFIC_DRIVER">Tier 4: Weekday Promo</option>
+                    </select>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tier</th>
+                            <th>Item Name</th>
+                            <th>MRP</th>
+                            <th>Discounted Price</th>
+                            <th>Discount %</th>
+                            <th>Offer Rule</th>
+                            <th>Expected Sales Lift</th>
+                        </tr>
+                    </thead>
+                    <tbody id="discTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. ITEM RECOMMENDER -->
+        <div id="tab-recommender" class="tab-panel">
+            <div class="panel-box">
+                <div class="controls-row">
+                    <label>From:</label>
+                    <input type="date" id="recStartDate" value="2026-11-01">
+                    <label>To:</label>
+                    <input type="date" id="recEndDate" value="2026-11-10">
+                    <label>Category:</label>
+                    <select id="recCategoryFilter"></select>
+                    <label>Safety Buffer:</label>
+                    <select id="recServiceLevel">
+                        <option value="0.90">Low (90%)</option>
+                        <option value="0.95" selected>Standard (95%)</option>
+                        <option value="0.99">High (99%)</option>
+                    </select>
+                    <button class="btn btn-primary" id="runRecommenderBtn">Calculate Stock</button>
+                    <button class="btn" id="exportPoCsvBtn">Export CSV</button>
+                </div>
+                <div id="recCalendarBanner" class="note-bar"></div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-title">Urgent Restock</div>
+                    <div class="stat-num text-danger" id="recCriticalCount">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Items to Order</div>
+                    <div class="stat-num" id="recSkusNeed">0 / 50</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Total Order Qty</div>
+                    <div class="stat-num text-primary" id="recTotalUnits">0</div>
+                    <div class="stat-sub" id="recProcCost">Cost: Rs. 0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-title">Expected Revenue</div>
+                    <div class="stat-num text-success" id="recProjRev">Rs. 0</div>
+                    <div class="stat-sub" id="recProjMargin">Margin: Rs. 0</div>
+                </div>
+            </div>
+
+            <div class="panel-box">
+                <div class="controls-row justify-between">
+                    <h4>Recommended Stock for Date Range</h4>
+                    <select id="recPriorityFilter">
+                        <option value="all">All Priorities</option>
+                        <option value="CRITICAL_RESTOCK">Urgent Restock</option>
+                        <option value="HIGH_PRIORITY">High Priority</option>
+                        <option value="SAFETY_REFILL">Safety Refill</option>
+                        <option value="SUFFICIENT">Sufficient Stock</option>
+                    </select>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Priority</th>
+                            <th>Item Name</th>
+                            <th>Category</th>
+                            <th>MRP (Rs.)</th>
+                            <th>Predicted Demand</th>
+                            <th>Safety Stock</th>
+                            <th>Current Stock</th>
+                            <th>Recommended Order Qty</th>
+                            <th>Est. Cost (Rs.)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. UNSTOCKED QUERIES (>100 ALERT) -->
+        <div id="tab-queries" class="tab-panel">
+            <div class="panel-box alert-panel">
+                <div class="controls-row justify-between">
+                    <h4>Alerts: Unstocked Products with &gt; 100 User Queries</h4>
+                    <span class="badge badge-danger" id="activeAlertsHeaderBadge">4 Alerts</span>
+                </div>
+                <div id="triggeredAlertsGrid" class="alert-list"></div>
+            </div>
+
+            <div class="panel-box">
+                <h4>Simulate User Search Query</h4>
+                <div class="controls-row">
+                    <input type="text" id="simSearchInput" value="ID Fresh Idli & Dosa Batter 1kg" placeholder="Enter product name..." style="min-width:240px;">
+                    <select id="simSearchCategory">
+                        <option value="Bakery & Breakfast">Bakery &amp; Breakfast</option>
+                        <option value="Beverages">Beverages</option>
+                        <option value="Dairy & Eggs">Dairy &amp; Eggs</option>
+                        <option value="Biscuits & Chocolates">Biscuits &amp; Chocolates</option>
+                        <option value="Snacks & Namkeen">Snacks &amp; Namkeen</option>
+                        <option value="Staples & Grains">Staples &amp; Grains</option>
+                        <option value="Packaged Foods & Spreads">Packaged Foods &amp; Spreads</option>
+                        <option value="Tea & Coffee">Tea &amp; Coffee</option>
+                        <option value="Spices & Masalas">Spices &amp; Masalas</option>
+                    </select>
+                    <input type="number" id="simSearchMrp" value="95" style="width:80px;" title="Estimated MRP">
+                    <select id="simSearchBurst">
+                        <option value="1">+1 Query</option>
+                        <option value="5" selected>+5 Queries</option>
+                        <option value="15">+15 Queries</option>
+                        <option value="105">+105 Queries</option>
+                    </select>
+                    <button class="btn btn-primary" id="runSearchSimBtn">Submit Query</button>
+                </div>
+                <div class="preset-row">
+                    <span>Test items:</span>
+                    <button class="btn-sm query-preset" data-q="ID Fresh Idli & Dosa Batter 1kg" data-cat="Bakery & Breakfast" data-mrp="95">Idli Batter (96/100)</button>
+                    <button class="btn-sm query-preset" data-q="Red Bull Energy Drink 250ml" data-cat="Beverages" data-mrp="125">Red Bull (94/100)</button>
+                    <button class="btn-sm query-preset" data-q="Davidoff Rich Aroma Instant Coffee 100g" data-cat="Tea & Coffee" data-mrp="650">Davidoff Coffee (88/100)</button>
+                    <button class="btn-sm query-preset" data-q="Paneer 200g" data-cat="Dairy & Eggs" data-mrp="105">Paneer 200g (In Stock)</button>
+                </div>
+                <div id="searchSimFeedback" class="msg-box hidden"></div>
+            </div>
+
+            <div class="panel-box">
+                <h4>Unstocked Product Query Log</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Est. MRP (Rs.)</th>
+                            <th>Query Count</th>
+                            <th>Est. Monthly Sales</th>
+                            <th>Suggested Stock</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="unmetQueriesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
